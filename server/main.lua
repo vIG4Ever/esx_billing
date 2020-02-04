@@ -151,25 +151,54 @@ ESX.RegisterServerCallback('esx_billing:payBill', function(source, cb, id)
 				end
 
 			else
-				--TriggerClientEvent('esx:showNotification', xPlayer.source, _U('player_not_online'))
-				MySQL.Async.execute('DELETE from billing WHERE id = @id', {
-					['@id'] = id
-				}, function(rowsChanged)
-					xPlayer.removeAccountMoney('bank', amount)
-					TriggerClientEvent('esx:showNotification', xPlayer.source, _U('paid_invoice', ESX.Math.GroupDigits(amount)))
+				if xPlayer.getMoney() >= amount then
+
+					MySQL.Async.fetchAll('SELECT bank FROM users WHERE identifier = @identifier', { ["@identifier"] = target }, function(result)
+						if result[1]["bank"] ~= nil then
+							MySQL.Async.execute("UPDATE users SET bank = @newBank WHERE identifier = @identifier",
+								{
+									["@identifier"] = target,
+									["@newBank"] = result[1]["bank"] + amount
+								}
+							)
+						end
+					end)
+
+					MySQL.Async.execute('DELETE from billing WHERE id = @id', {
+						['@id'] = id
+					}, function(rowsChanged)
+						xPlayer.removeMoney(amount)
+						TriggerClientEvent('esx:showNotification', xPlayer.source, _U('paid_invoice', ESX.Math.GroupDigits(amount)))
+
+						cb()
+					end)
+
+				elseif xPlayer.getBank() >= amount then
+
+					MySQL.Async.fetchAll('SELECT bank FROM users WHERE identifier = @identifier', { ["@identifier"] = target }, function(result)
+						if result[1]["bank"] ~= nil then
+							MySQL.Async.execute("UPDATE users SET bank = @newBank WHERE identifier = @identifier",
+								{
+									["@identifier"] = target,
+									["@newBank"] = result[1]["bank"] + amount
+								}
+							)
+						end
+					end)
+
+					MySQL.Async.execute('DELETE from billing WHERE id = @id', {
+						['@id'] = id
+					}, function(rowsChanged)
+						xPlayer.removeAccountMoney('bank', amount)
+						TriggerClientEvent('esx:showNotification', xPlayer.source, _U('paid_invoice', ESX.Math.GroupDigits(amount)))
+						cb()
+					end)
+
+				else
+					TriggerClientEvent('esx:showNotification', xPlayer.source, _U('no_money'))
 					cb()
-				end)
-				MySQL.Async.fetchAll('SELECT bank FROM users WHERE identifier = @identifier', { ["@identifier"] = target }, function(result)
-					if result[1]["bank"] ~= nil then
-						MySQL.Async.execute("UPDATE users SET bank = @newBank WHERE identifier = @identifier",
-							{
-								["@identifier"] = target,
-								["@newBank"] = result[1]["bank"] + amount
-							}
-						)
-					end
-				end)
-				cb()
+				end
+				--TriggerClientEvent('esx:showNotification', xPlayer.source, _U('player_not_online'))
 			end
 
 		else
